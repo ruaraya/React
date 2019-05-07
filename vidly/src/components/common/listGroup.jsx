@@ -6,7 +6,7 @@ const ListGroup = ({
   valueProperty,
   selectedGenre,
   onFilterChange
-}) => {
+  }) => {
   return (
     <ul className="list-group">
       {genres.map(genre => (

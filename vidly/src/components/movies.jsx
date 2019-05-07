@@ -1,40 +1,71 @@
 import React, { Component } from "react";
+import { toast } from "react-toastify";
 import "../../node_modules/react-bootstrap-table/css/react-bootstrap-table.css";
 import MoviesTable from "./moviesTable";
 import Pagination from "./common/pagination";
-import { getMovies } from "../services/fakeMovieService";
-import { getGenres } from "../services/fakeGenreService";
+import { getMovies, deleteMovie } from "../services/movieService";
+import { getGenres } from "../services/genreService";
 import { paginate } from "./utils/paginate";
 import ListGroup from "./common/listGroup";
+import SearchBox from "./searchBox";
+import { Link } from "react-router-dom";
 import _ from "lodash";
 
 class Movies extends Component {
   state = {
-    allMovies: [],
     movies: [],
     genres: [],
     currentPage: 1,
     selectedGenre: "All Genres",
+    searchQuery: "",
     pageSize: 4,
     sortColumn: { path: "title", order: "asc" }
   };
 
-  componentDidMount() {
-    const genres = [{ _id: "", name: "All Genres" }, ...getGenres()];
-    this.setState({ movies: getMovies(), allMovies: getMovies(), genres });
+  async componentDidMount() {
+    var genres = await getGenres();
+    const movies = await getMovies();
+
+    genres = [{ _id: "", name: "All Genres" }, ...genres];
+
+    this.setState({ movies, genres });
   }
 
   handlePageChange = page => {
-    this.setState({ currentPage: page });
+    this.setState({ currentPage: page }); //every time we change this value, the page is re-rendered
   };
 
-  handleFilterChange = genre => {
+  handleFilterChange = async genre => {
+    var movies = await getMovies();
+
     if (genre === "All Genres") {
-      this.setState({ selectedGenre: genre, movies: this.state.allMovies });
+      this.setState({ selectedGenre: genre, movies });
     } else {
-      const movies = this.state.allMovies.filter(c => c.genre.name === genre);
-      this.setState({ currentPage: 1, selectedGenre: genre, movies });
+      movies = movies.filter(c => c.genre.name === genre);
+      this.setState({
+        currentPage: 1,
+        selectedGenre: genre,
+        movies,
+        searchQuery: ""
+      });
     }
+  };
+
+  handleSearch = async query => {
+    var { selectedGenre } = this.state;
+
+    const pattern = new RegExp("^" + query, "gmi");
+    var movies = await getMovies();
+
+    movies = movies.filter(movie => movie.title.match(pattern));
+    query === "" ? (selectedGenre = "All Genres") : (selectedGenre = null);
+
+    this.setState({
+      movies,
+      searchQuery: query,
+      selectedGenre,
+      currentPage: 1
+    });
   };
 
   handleLike = movie => {
@@ -45,18 +76,28 @@ class Movies extends Component {
     this.setState({ movies });
   };
 
-  handleDelete = movie => {
-    const allMovies = this.state.allMovies.filter(c => c._id !== movie._id);
+  handleDelete = async movie => {
+    const originalMovies = this.state.movies;
+
     const movies = this.state.movies.filter(c => c._id !== movie._id);
-    this.setState({ allMovies, movies });
+    this.setState({ movies });
+
+    try {
+      await deleteMovie(movie);
+    } catch (ex) {
+      if (ex.response && ex.response.status === 404)
+        toast.error("This movie has already been deleted.");
+
+      this.setState({ movies: originalMovies });
+    }
   };
 
   handleSort = sortColumn => {
-    this.setState({ sortColumn });
+    this.setState({ sortColumn }); //every time we change this value, the page is re-rendered
   };
 
   countMovies() {
-    const numMovies = this.state.allMovies.length;
+    const numMovies = this.state.movies.length;
     if (numMovies > 0) {
       return "Showing " + numMovies + " movies in the database";
     } else {
@@ -70,7 +111,8 @@ class Movies extends Component {
       pageSize,
       sortColumn,
       selectedGenre,
-      genres
+      genres,
+      searchQuery
     } = this.state;
     const count = this.state.movies.length;
 
@@ -84,7 +126,6 @@ class Movies extends Component {
 
     return (
       <main className="container">
-        <h4>{this.countMovies()}</h4>
         <div className="row">
           <div className="col-3">
             <ListGroup
@@ -94,6 +135,18 @@ class Movies extends Component {
             />
           </div>
           <div className="col">
+            <Link
+              to="/movies/new"
+              className="btn btn-primary"
+              style={{ maginBotton: 10 }}
+            >
+              New Movie
+            </Link>
+
+            <h4>{this.countMovies()}</h4>
+
+            <SearchBox value={searchQuery} onChange={this.handleSearch} />
+
             <MoviesTable
               movies={movies}
               sortColumn={sortColumn}
