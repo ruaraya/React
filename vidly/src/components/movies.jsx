@@ -25,9 +25,7 @@ class Movies extends Component {
   async componentDidMount() {
     var genres = await getGenres();
     const movies = await getMovies();
-
     genres = [{ _id: "", name: "All Genres" }, ...genres];
-
     this.setState({ movies, genres });
   }
 
@@ -115,6 +113,7 @@ class Movies extends Component {
       searchQuery
     } = this.state;
     const count = this.state.movies.length;
+    const { user } = this.props;
 
     const sorted = _.orderBy(
       this.state.movies,
@@ -135,13 +134,15 @@ class Movies extends Component {
             />
           </div>
           <div className="col">
-            <Link
-              to="/movies/new"
-              className="btn btn-primary"
-              style={{ maginBotton: 10 }}
-            >
-              New Movie
-            </Link>
+            {user && (
+              <Link
+                to="/movies/new"
+                className="btn btn-primary"
+                style={{ maginBotton: 10 }}
+              >
+                New Movie
+              </Link>
+            )}
 
             <h4>{this.countMovies()}</h4>
 
